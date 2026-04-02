@@ -96,20 +96,28 @@ document.addEventListener('DOMContentLoaded', () => {
         const likeBtn = likeContainer.querySelector('.like-btn');
         const likeCount = likeContainer.querySelector('.like-count');
 
-        // Fetch global state asynchronously
-        fetch(`https://api.counterapi.dev/v1/danycamposart/${namespaceKey}`)
-            .then(res => res.json())
-            .then(data => {
-                if(data && data.count !== undefined) {
-                    currentLikes = data.count;
-                    likeCount.textContent = currentLikes;
-                } else {
-                    likeCount.textContent = '0';
+        // Fetch global state lazily when the painting is visible to avoid clogging network limits
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    fetch(`https://api.counterapi.dev/v1/danycamposart/${namespaceKey}`)
+                        .then(res => res.json())
+                        .then(data => {
+                            if(data && data.count !== undefined) {
+                                currentLikes = data.count;
+                                likeCount.textContent = currentLikes;
+                            } else {
+                                likeCount.textContent = '0';
+                            }
+                        })
+                        .catch(err => {
+                            likeCount.textContent = '0';
+                        });
+                    observer.unobserve(entry.target);
                 }
-            })
-            .catch(err => {
-                likeCount.textContent = '0';
             });
+        }, { threshold: 0.2 });
+        observer.observe(item);
         
         // Prevent click from triggering the lightbox
         likeContainer.addEventListener('click', (e) => {
