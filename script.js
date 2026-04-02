@@ -96,41 +96,32 @@ document.addEventListener('DOMContentLoaded', () => {
         const likeBtn = likeContainer.querySelector('.like-btn');
         const likeCount = likeContainer.querySelector('.like-count');
 
-        // Fetch global state lazily when the painting is near visible
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    const cacheKey = `c_count_${namespaceKey}`;
-                    const timeKey = `c_time_${namespaceKey}`;
-                    const now = Date.now();
-                    const lastFetch = localStorage.getItem(timeKey) || 0;
-                    
-                    // Show cached number instantly to avoid empty zeros
-                    if (localStorage.getItem(cacheKey) !== null) {
-                        currentLikes = parseInt(localStorage.getItem(cacheKey), 10);
-                        likeCount.textContent = currentLikes;
-                    }
+        // Cache variables
+        const cacheKey = `c_count_${namespaceKey}`;
+        const timeKey = `c_time_${namespaceKey}`;
+        const now = Date.now();
+        const lastFetch = localStorage.getItem(timeKey) || 0;
+        
+        // Show cached number instantly to avoid empty zeros
+        if (localStorage.getItem(cacheKey) !== null) {
+            currentLikes = parseInt(localStorage.getItem(cacheKey), 10);
+            likeCount.textContent = currentLikes;
+        }
 
-                    // Only query server again if 60 seconds have passed since last ping
-                    // This protects the free API 45/req minute limit from blocking and breaking the layout
-                    if (now - lastFetch > 60000) {
-                        fetch(`https://api.counterapi.dev/v1/danycamposart/${namespaceKey}`)
-                            .then(res => res.json())
-                            .then(data => {
-                                if(data && data.count !== undefined) {
-                                    currentLikes = data.count;
-                                    likeCount.textContent = currentLikes;
-                                    localStorage.setItem(cacheKey, currentLikes);
-                                    localStorage.setItem(timeKey, now);
-                                }
-                            })
-                            .catch(err => {});
+        // Only query server again if 120 seconds have passed since last ping
+        if (now - lastFetch > 120000) {
+            fetch(`https://api.counterapi.dev/v1/danycamposart/${namespaceKey}`)
+                .then(res => res.json())
+                .then(data => {
+                    if(data && data.count !== undefined) {
+                        currentLikes = data.count;
+                        likeCount.textContent = currentLikes;
+                        localStorage.setItem(cacheKey, currentLikes);
+                        localStorage.setItem(timeKey, now);
                     }
-                    observer.unobserve(entry.target);
-                }
-            });
-        }, { rootMargin: "500px" });
-        observer.observe(item);
+                })
+                .catch(err => {});
+        }
         
         // Prevent click from triggering the lightbox
         likeContainer.addEventListener('click', (e) => {
