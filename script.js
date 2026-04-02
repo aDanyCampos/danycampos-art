@@ -67,33 +67,49 @@ document.addEventListener('DOMContentLoaded', () => {
     // Instagram-style Like Button Injection
     const galleryContainers = document.querySelectorAll('.gallery-item');
     
-    galleryContainers.forEach((item, index) => {
-        // Generate a deterministic base like count based on index
-        const baseLikes = 100 + (index * 13) % 87;
-        const itemId = `artwork-like-${index}`;
-        
-        // Check local storage for user like
-        const isLiked = localStorage.getItem(itemId) === 'true';
-        let currentLikes = isLiked ? baseLikes + 1 : baseLikes;
-        
-        const likeContainer = document.createElement('div');
-        likeContainer.className = 'like-container';
+    galleryContainers.forEach((item) => {
+        // Generate a stable key based on the title
+        const originalTitle = item.dataset.title || item.querySelector('h3').innerText || 'unknown';
+        const safeKey = originalTitle.toLowerCase().replace(/[^a-z0-9]+/g, "_");
+        const namespaceKey = `like_art_${safeKey}`;
         
         // Outline heart SVG and solid heart SVG
         const heartOutline = `<svg aria-label="Curtir" class="heart-icon outline" fill="currentColor" viewBox="0 0 24 24" width="24" height="24"><path d="M16.792 3.904A4.989 4.989 0 0 1 21.5 9.122c0 3.072-2.652 4.959-5.197 7.222-2.512 2.243-3.865 3.469-4.303 3.752-.477-.309-2.143-1.823-4.303-3.752C5.141 14.072 2.5 12.167 2.5 9.122a4.989 4.989 0 0 1 4.708-5.218 4.21 4.21 0 0 1 3.675 1.941c.84 1.175.98 1.543 1.117 1.543s.277-.368 1.117-1.543a4.21 4.21 0 0 1 3.675-1.941z" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>`;
         const heartSolid = `<svg aria-label="Descurtir" class="heart-icon solid" fill="#ed4956" viewBox="0 0 24 24" width="24" height="24"><path d="M16.792 3.904A4.989 4.989 0 0 1 21.5 9.122c0 3.072-2.652 4.959-5.197 7.222-2.512 2.243-3.865 3.469-4.303 3.752-.477-.309-2.143-1.823-4.303-3.752C5.141 14.072 2.5 12.167 2.5 9.122a4.989 4.989 0 0 1 4.708-5.218 4.21 4.21 0 0 1 3.675 1.941c.84 1.175.98 1.543 1.117 1.543s.277-.368 1.117-1.543a4.21 4.21 0 0 1 3.675-1.941z" fill="#ed4956" stroke="none"></path></svg>`;
         
+        // Local preference tracking
+        const isLikedLocal = localStorage.getItem(namespaceKey) === 'true';
+        let currentLikes = 0; // Starts at 0 until we fetch
+        
+        const likeContainer = document.createElement('div');
+        likeContainer.className = 'like-container';
+        
         likeContainer.innerHTML = `
-            <button class="like-btn ${isLiked ? 'liked' : ''}">
-                ${isLiked ? heartSolid : heartOutline}
+            <button class="like-btn ${isLikedLocal ? 'liked' : ''}">
+                ${isLikedLocal ? heartSolid : heartOutline}
             </button>
-            <span class="like-count">${currentLikes}</span>
+            <span class="like-count">...</span>
         `;
         
         item.appendChild(likeContainer);
         
         const likeBtn = likeContainer.querySelector('.like-btn');
         const likeCount = likeContainer.querySelector('.like-count');
+
+        // Fetch global state asynchronously
+        fetch(`https://api.counterapi.dev/v1/danycamposart/${namespaceKey}`)
+            .then(res => res.json())
+            .then(data => {
+                if(data && data.count !== undefined) {
+                    currentLikes = data.count;
+                    likeCount.textContent = currentLikes;
+                } else {
+                    likeCount.textContent = '0';
+                }
+            })
+            .catch(err => {
+                likeCount.textContent = '0';
+            });
         
         // Prevent click from triggering the lightbox
         likeContainer.addEventListener('click', (e) => {
@@ -104,17 +120,19 @@ document.addEventListener('DOMContentLoaded', () => {
             e.stopPropagation();
             
             const isCurrentlyLiked = likeBtn.classList.contains('liked');
+            let action = isCurrentlyLiked ? 'down' : 'up';
             
+            // Switch UI optimistically
             if (isCurrentlyLiked) {
                 likeBtn.classList.remove('liked');
                 likeBtn.innerHTML = heartOutline;
-                currentLikes--;
-                localStorage.setItem(itemId, 'false');
+                currentLikes = Math.max(0, currentLikes - 1);
+                localStorage.setItem(namespaceKey, 'false');
             } else {
                 likeBtn.classList.add('liked');
                 likeBtn.innerHTML = heartSolid;
                 currentLikes++;
-                localStorage.setItem(itemId, 'true');
+                localStorage.setItem(namespaceKey, 'true');
                 
                 // Add pop animation
                 likeBtn.style.transform = 'scale(1.2)';
@@ -123,6 +141,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 }, 200);
             }
             likeCount.textContent = currentLikes;
+
+            // Make API request without blocking
+            fetch(`https://api.counterapi.dev/v1/danycamposart/${namespaceKey}/${action}`)
+                .then(res => res.json())
+                .then(data => {
+                    if(data && data.count !== undefined) {
+                        currentLikes = data.count; // sync true count
+                        likeCount.textContent = currentLikes;
+                    }
+                })
+                .catch(e => console.error("Erro curtindo", e));
         });
     });
 });
