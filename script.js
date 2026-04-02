@@ -158,72 +158,47 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 })
                 .catch(e => console.error("Erro curtindo", e));
+                
+            // Update Mestre / Global Counter silently
+            fetch(`https://api.counterapi.dev/v1/danycamposart/global_likes_total/${action}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data && data.count !== undefined) {
+                        const globalEl = document.getElementById('public-likes');
+                        if (globalEl) globalEl.textContent = data.count;
+                    }
+                }).catch(()=>{});
         });
     });
 });
 
-// Secret Visit Counter
-let secretVisitCount = 0;
-// Fetch and increment visits globally silently
-fetch('https://api.counterapi.dev/v1/danycamposart/visits/up')
-    .then(r => r.json())
-    .then(data => {
-        if(data && data.count) {
-            secretVisitCount = data.count;
-        }
-    })
-    .catch(err => console.error("Erro interno:", err));
-
-// Secret triple-click on logo to reveal
+// Initialize Public Counters on Page Load
 document.addEventListener('DOMContentLoaded', () => {
-    let logoClicks = 0;
-    let logoClickTimer;
-    const logoElement = document.querySelector('.logo');
-    
-    if(logoElement) {
-        logoElement.addEventListener('click', (e) => {
-            logoClicks++;
-            
-            clearTimeout(logoClickTimer);
-            logoClickTimer = setTimeout(() => {
-                logoClicks = 0; // reset after timeout
-            }, 600); // 600ms window for triple click
-            
-            if (logoClicks >= 3) {
-                showSecretCounter();
-                logoClicks = 0;
+    // 1. Fetch Visits
+    fetch('https://api.counterapi.dev/v1/danycamposart/visits/up')
+        .then(r => r.json())
+        .then(data => {
+            if(data && data.count) {
+                const visitEl = document.getElementById('public-visits');
+                if (visitEl) visitEl.textContent = data.count;
             }
-        });
-    }
-    
-    function showSecretCounter() {
-        let existing = document.getElementById('secret-counter');
-        if(existing) {
-            existing.remove(); // removes if already open and clicks again
-        }
-        
-        let totalLikes = 0;
-        document.querySelectorAll('.like-count').forEach(el => {
-            totalLikes += parseInt(el.textContent) || 0;
-        });
+        })
+        .catch(err => console.error("Erro visitas:", err));
 
-        const counterEl = document.createElement('div');
-        counterEl.id = 'secret-counter';
-        counterEl.className = 'secret-counter-toast';
-        counterEl.innerHTML = `
-            <div><span>Total de Visitas:</span> <strong>${secretVisitCount}</strong></div>
-            <div style="margin-top: 5px;"><span>Total de Curtidas:</span> <strong>${totalLikes}</strong></div>
-        `;
-        
-        document.body.appendChild(counterEl);
-        
-        // Auto-hide after 5 seconds
-        setTimeout(() => {
-            const el = document.getElementById('secret-counter');
-            if(el) {
-                el.style.opacity = '0';
-                setTimeout(() => el.remove(), 500);
+    // 2. Fetch Global Likes
+    fetch('https://api.counterapi.dev/v1/danycamposart/global_likes_total')
+        .then(r => r.json())
+        .then(data => {
+            if(data && data.count !== undefined) {
+                 const likeEl = document.getElementById('public-likes');
+                 if (likeEl) likeEl.textContent = data.count;
+            } else {
+                 const likeEl = document.getElementById('public-likes');
+                 if (likeEl) likeEl.textContent = '0';
             }
-        }, 5000);
-    }
+        })
+        .catch(err => {
+             const likeEl = document.getElementById('public-likes');
+             if (likeEl) likeEl.textContent = '0';
+        });
 });
