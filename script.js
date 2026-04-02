@@ -79,7 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Local preference tracking
         const isLikedLocal = localStorage.getItem(namespaceKey) === 'true';
-        let currentLikes = 0; // Starts at 0 until we fetch
+        let currentLikes = isLikedLocal ? 1 : 0; // Starts at safe fallback
         
         const likeContainer = document.createElement('div');
         likeContainer.className = 'like-container';
@@ -88,7 +88,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <button class="like-btn ${isLikedLocal ? 'liked' : ''}">
                 ${isLikedLocal ? heartSolid : heartOutline}
             </button>
-            <span class="like-count">...</span>
+            <span class="like-count">${currentLikes}</span>
         `;
         
         item.appendChild(likeContainer);
@@ -106,12 +106,10 @@ document.addEventListener('DOMContentLoaded', () => {
                             if(data && data.count !== undefined) {
                                 currentLikes = data.count;
                                 likeCount.textContent = currentLikes;
-                            } else {
-                                likeCount.textContent = '0';
                             }
                         })
                         .catch(err => {
-                            likeCount.textContent = '0';
+                            // Silently ignore, keeping local fallback
                         });
                     observer.unobserve(entry.target);
                 }
