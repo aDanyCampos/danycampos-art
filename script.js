@@ -96,7 +96,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const likeBtn = likeContainer.querySelector('.like-btn');
         const likeCount = likeContainer.querySelector('.like-count');
 
-        // Fetch global state lazily when the painting is visible to avoid clogging network limits
+        // Fetch global state lazily when the painting is near visible
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
@@ -114,7 +114,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     observer.unobserve(entry.target);
                 }
             });
-        }, { threshold: 0.2 });
+        }, { rootMargin: "500px" });
         observer.observe(item);
         
         // Prevent click from triggering the lightbox
