@@ -100,17 +100,32 @@ document.addEventListener('DOMContentLoaded', () => {
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
-                    fetch(`https://api.counterapi.dev/v1/danycamposart/${namespaceKey}`)
-                        .then(res => res.json())
-                        .then(data => {
-                            if(data && data.count !== undefined) {
-                                currentLikes = data.count;
-                                likeCount.textContent = currentLikes;
-                            }
-                        })
-                        .catch(err => {
-                            // Silently ignore, keeping local fallback
-                        });
+                    const cacheKey = `c_count_${namespaceKey}`;
+                    const timeKey = `c_time_${namespaceKey}`;
+                    const now = Date.now();
+                    const lastFetch = localStorage.getItem(timeKey) || 0;
+                    
+                    // Show cached number instantly to avoid empty zeros
+                    if (localStorage.getItem(cacheKey) !== null) {
+                        currentLikes = parseInt(localStorage.getItem(cacheKey), 10);
+                        likeCount.textContent = currentLikes;
+                    }
+
+                    // Only query server again if 60 seconds have passed since last ping
+                    // This protects the free API 45/req minute limit from blocking and breaking the layout
+                    if (now - lastFetch > 60000) {
+                        fetch(`https://api.counterapi.dev/v1/danycamposart/${namespaceKey}`)
+                            .then(res => res.json())
+                            .then(data => {
+                                if(data && data.count !== undefined) {
+                                    currentLikes = data.count;
+                                    likeCount.textContent = currentLikes;
+                                    localStorage.setItem(cacheKey, currentLikes);
+                                    localStorage.setItem(timeKey, now);
+                                }
+                            })
+                            .catch(err => {});
+                    }
                     observer.unobserve(entry.target);
                 }
             });
@@ -155,6 +170,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     if(data && data.count !== undefined) {
                         currentLikes = data.count; // sync true count
                         likeCount.textContent = currentLikes;
+                        localStorage.setItem(`c_count_${namespaceKey}`, currentLikes);
+                        localStorage.setItem(`c_time_${namespaceKey}`, Date.now());
                     }
                 })
                 .catch(e => console.error("Erro curtindo", e));
