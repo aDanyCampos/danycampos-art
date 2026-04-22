@@ -64,6 +64,33 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // Intersection Observer for real-time likes without rate-limiting
+    const likesObserver = new IntersectionObserver((entries, observer) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const item = entry.target;
+                const namespaceKey = item.dataset.likeKey;
+                const cacheKey = `c_count_${namespaceKey}`;
+                const timeKey = `c_time_${namespaceKey}`;
+                const likeCount = item.querySelector('.like-count');
+                
+                // Fetch real-time count
+                fetch(`https://api.counterapi.dev/v1/danycamposart/${namespaceKey}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if(data && data.count !== undefined) {
+                            likeCount.textContent = data.count;
+                            localStorage.setItem(cacheKey, data.count);
+                            localStorage.setItem(timeKey, Date.now());
+                        }
+                    })
+                    .catch(err => {});
+                
+                observer.unobserve(item); // Fetch once per view to avoid rapid polling
+            }
+        });
+    }, { rootMargin: "200px" });
+
     // Instagram-style Like Button Injection
     const galleryContainers = document.querySelectorAll('.gallery-item');
     
@@ -108,20 +135,9 @@ document.addEventListener('DOMContentLoaded', () => {
             likeCount.textContent = currentLikes;
         }
 
-        // Only query server again if 120 seconds have passed since last ping
-        if (now - lastFetch > 120000) {
-            fetch(`https://api.counterapi.dev/v1/danycamposart/${namespaceKey}`)
-                .then(res => res.json())
-                .then(data => {
-                    if(data && data.count !== undefined) {
-                        currentLikes = data.count;
-                        likeCount.textContent = currentLikes;
-                        localStorage.setItem(cacheKey, currentLikes);
-                        localStorage.setItem(timeKey, now);
-                    }
-                })
-                .catch(err => {});
-        }
+        // Attach to observer to fetch real-time count when visible
+        item.dataset.likeKey = namespaceKey;
+        likesObserver.observe(item);
         
         // Prevent click from triggering the lightbox
         likeContainer.addEventListener('click', (e) => {
@@ -162,7 +178,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         currentLikes = data.count; // sync true count
                         likeCount.textContent = currentLikes;
                         localStorage.setItem(`c_count_${namespaceKey}`, currentLikes);
-                        localStorage.setItem(`c_time_${namespaceKey}`, Date.now());
                     }
                 })
                 .catch(e => console.error("Erro curtindo", e));
@@ -174,6 +189,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (data && data.count !== undefined) {
                         const globalEl = document.getElementById('public-likes');
                         if (globalEl) globalEl.textContent = data.count;
+                        localStorage.setItem('c_global', data.count);
                     }
                 }).catch(()=>{});
         });
@@ -191,36 +207,33 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (cachedVisits && visitEl) visitEl.textContent = cachedVisits;
     
-    if (now - timeVisits > 60000) {
-        fetch('https://api.counterapi.dev/v1/danycamposart/visits/up')
-            .then(r => r.json())
-            .then(data => {
-                if(data && data.count) {
-                    if (visitEl) visitEl.textContent = data.count;
-                    localStorage.setItem('c_visits', data.count);
-                    localStorage.setItem('t_visits', now);
-                }
-            }).catch(()=>{});
-    }
+    // Fetch real-time visits silently
+    fetch('https://api.counterapi.dev/v1/danycamposart/visits/up')
+        .then(r => r.json())
+        .then(data => {
+            if(data && data.count) {
+                if (visitEl) visitEl.textContent = data.count;
+                localStorage.setItem('c_visits', data.count);
+                localStorage.setItem('t_visits', now);
+            }
+        }).catch(()=>{});
 
     // 2. Fetch Global Likes (With Cache and robust fallback)
     const cachedGlobal = localStorage.getItem('c_global');
-    const timeGlobal = localStorage.getItem('t_global') || 0;
     const likeEl = document.getElementById('public-likes');
     
     // Use cache or standard minimum known organic sum (fallback instead of 0)
     let baseGlobal = cachedGlobal ? parseInt(cachedGlobal) : 121;
     if (likeEl) likeEl.textContent = baseGlobal;
     
-    if (now - timeGlobal > 60000) {
-        fetch('https://api.counterapi.dev/v1/danycamposart/global_likes_total')
-            .then(r => r.json())
-            .then(data => {
-                if(data && data.count !== undefined) {
-                    if (likeEl) likeEl.textContent = data.count;
-                    localStorage.setItem('c_global', data.count);
-                    localStorage.setItem('t_global', now);
-                }
-            }).catch(()=>{});
-    }
+    // Fetch real-time global likes silently
+    fetch('https://api.counterapi.dev/v1/danycamposart/global_likes_total')
+        .then(r => r.json())
+        .then(data => {
+            if(data && data.count !== undefined) {
+                if (likeEl) likeEl.textContent = data.count;
+                localStorage.setItem('c_global', data.count);
+                localStorage.setItem('t_global', now);
+            }
+        }).catch(()=>{});
 });
