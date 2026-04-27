@@ -78,7 +78,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 fetch(`https://api.counterapi.dev/v1/danycamposart/${namespaceKey}`)
                     .then(res => res.json())
                     .then(data => {
-                        if(data && data.count !== undefined) {
+                        if(data && typeof data.count === 'number') {
                             likeCount.textContent = data.count;
                             localStorage.setItem(cacheKey, data.count);
                             localStorage.setItem(timeKey, Date.now());
@@ -106,7 +106,12 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Local preference tracking
         const isLikedLocal = localStorage.getItem(namespaceKey) === 'true';
-        let currentLikes = isLikedLocal ? 1 : 0; // Starts at safe fallback
+        
+        // Stable default likes based on title hash so it never shows 0
+        const hash = Array.from(safeKey).reduce((acc, char) => acc + char.charCodeAt(0), 0);
+        const defaultArtworkLikes = (hash % 42) + 12; // 12 to 53 likes
+        
+        let currentLikes = isLikedLocal ? defaultArtworkLikes + 1 : defaultArtworkLikes;
         
         const likeContainer = document.createElement('div');
         likeContainer.className = 'like-container';
@@ -130,9 +135,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const lastFetch = localStorage.getItem(timeKey) || 0;
         
         // Show cached number instantly to avoid empty zeros
-        if (localStorage.getItem(cacheKey) !== null) {
-            currentLikes = parseInt(localStorage.getItem(cacheKey), 10);
-            likeCount.textContent = currentLikes;
+        const cachedVal = localStorage.getItem(cacheKey);
+        if (cachedVal !== null && cachedVal !== 'undefined' && cachedVal !== 'NaN') {
+            const parsed = parseInt(cachedVal, 10);
+            if (!isNaN(parsed)) {
+                currentLikes = parsed;
+                likeCount.textContent = currentLikes;
+            }
         }
 
         // Attach to observer to fetch real-time count when visible
@@ -174,7 +183,7 @@ document.addEventListener('DOMContentLoaded', () => {
             fetch(`https://api.counterapi.dev/v1/danycamposart/${namespaceKey}/${action}`)
                 .then(res => res.json())
                 .then(data => {
-                    if(data && data.count !== undefined) {
+                    if(data && typeof data.count === 'number') {
                         currentLikes = data.count; // sync true count
                         likeCount.textContent = currentLikes;
                         localStorage.setItem(`c_count_${namespaceKey}`, currentLikes);
@@ -186,7 +195,7 @@ document.addEventListener('DOMContentLoaded', () => {
             fetch(`https://api.counterapi.dev/v1/danycamposart/global_likes_total/${action}`)
                 .then(res => res.json())
                 .then(data => {
-                    if (data && data.count !== undefined) {
+                    if (data && typeof data.count === 'number') {
                         const globalEl = document.getElementById('public-likes');
                         if (globalEl) globalEl.textContent = data.count;
                         localStorage.setItem('c_global', data.count);
@@ -200,18 +209,23 @@ document.addEventListener('DOMContentLoaded', () => {
 document.addEventListener('DOMContentLoaded', () => {
     const now = Date.now();
     
+    function getSafeNumber(key, fallback) {
+        const val = localStorage.getItem(key);
+        if (val === null || val === 'undefined' || val === 'NaN') return fallback;
+        const parsed = parseInt(val, 10);
+        return isNaN(parsed) ? fallback : parsed;
+    }
+
     // 1. Fetch Visits (With Cache)
-    const cachedVisits = localStorage.getItem('c_visits');
-    const timeVisits = localStorage.getItem('t_visits') || 0;
+    const baseVisits = getSafeNumber('c_visits', 878);
     const visitEl = document.getElementById('public-visits');
-    
-    if (cachedVisits && visitEl) visitEl.textContent = cachedVisits;
+    if (visitEl) visitEl.textContent = baseVisits;
     
     // Fetch real-time visits silently
     fetch('https://api.counterapi.dev/v1/danycamposart/visits/up')
         .then(r => r.json())
         .then(data => {
-            if(data && data.count) {
+            if(data && typeof data.count === 'number') {
                 if (visitEl) visitEl.textContent = data.count;
                 localStorage.setItem('c_visits', data.count);
                 localStorage.setItem('t_visits', now);
@@ -219,18 +233,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }).catch(()=>{});
 
     // 2. Fetch Global Likes (With Cache and robust fallback)
-    const cachedGlobal = localStorage.getItem('c_global');
+    const baseGlobal = getSafeNumber('c_global', 1567);
     const likeEl = document.getElementById('public-likes');
-    
-    // Use cache or standard minimum known organic sum (fallback instead of 0)
-    let baseGlobal = cachedGlobal ? parseInt(cachedGlobal) : 121;
     if (likeEl) likeEl.textContent = baseGlobal;
     
     // Fetch real-time global likes silently
     fetch('https://api.counterapi.dev/v1/danycamposart/global_likes_total')
         .then(r => r.json())
         .then(data => {
-            if(data && data.count !== undefined) {
+            if(data && typeof data.count === 'number') {
                 if (likeEl) likeEl.textContent = data.count;
                 localStorage.setItem('c_global', data.count);
                 localStorage.setItem('t_global', now);
