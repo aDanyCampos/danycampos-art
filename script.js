@@ -217,7 +217,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 1. Fetch Visits (With Cache)
-    const baseVisits = getSafeNumber('c_visits', 878);
+    let baseVisits = getSafeNumber('c_visits', 878);
+    baseVisits = Math.max(878, baseVisits); // Ensure it never drops below initial baseline
     const visitEl = document.getElementById('public-visits');
     if (visitEl) visitEl.textContent = baseVisits;
     
@@ -226,14 +227,16 @@ document.addEventListener('DOMContentLoaded', () => {
         .then(r => r.json())
         .then(data => {
             if(data && typeof data.count === 'number') {
-                if (visitEl) visitEl.textContent = data.count;
-                localStorage.setItem('c_visits', data.count);
+                const finalVisits = Math.max(878, data.count);
+                if (visitEl) visitEl.textContent = finalVisits;
+                localStorage.setItem('c_visits', finalVisits);
                 localStorage.setItem('t_visits', now);
             }
         }).catch(()=>{});
 
     // 2. Fetch Global Likes (With Cache and robust fallback)
-    const baseGlobal = getSafeNumber('c_global', 1567);
+    let baseGlobal = getSafeNumber('c_global', 1567);
+    baseGlobal = Math.max(1567, baseGlobal); // Ensure it never drops below initial baseline
     const likeEl = document.getElementById('public-likes');
     if (likeEl) likeEl.textContent = baseGlobal;
     
@@ -242,8 +245,9 @@ document.addEventListener('DOMContentLoaded', () => {
         .then(r => r.json())
         .then(data => {
             if(data && typeof data.count === 'number') {
-                if (likeEl) likeEl.textContent = data.count;
-                localStorage.setItem('c_global', data.count);
+                const finalGlobal = Math.max(1567, data.count);
+                if (likeEl) likeEl.textContent = finalGlobal;
+                localStorage.setItem('c_global', finalGlobal);
                 localStorage.setItem('t_global', now);
             }
         }).catch(()=>{});
